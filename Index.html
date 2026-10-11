@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#0B1020">
-<meta name="description" content="Arrow47 — an arrow escape puzzle. Free every arrow from the grid. Infinite, always-solvable levels. Works offline.">
+<meta name="description" content="Arrow47 — an arrow escape puzzle. Free every arrow from the grid. Endless always-solvable levels, daily puzzles and rush mode. Works offline.">
 <title>Arrow47 — Arrow Escape Puzzle</title>
 <style>
 /* ============================= THEME ============================= */
@@ -27,7 +27,9 @@ body{
 }
 button{font-family:inherit; touch-action:manipulation;}
 #app{position:fixed; inset:0; padding-left:var(--sal); padding-right:var(--sar);}
-#app:after{content:''; position:absolute; inset:0; pointer-events:none;}
+
+/* In Playables mode the host owns audio — hide our sound controls. */
+body.platform-playables .sound-only{display:none!important;}
 
 /* ============================= SCREENS ============================= */
 .screen{position:absolute; inset:0; display:flex; flex-direction:column; background:var(--bg);
@@ -40,15 +42,15 @@ button{font-family:inherit; touch-action:manipulation;}
 #game{padding-top:var(--sat);}
 #hud{display:flex; align-items:center; gap:10px; padding:10px 12px 6px;}
 .level-chip{background:var(--panel); border:1px solid var(--line); border-radius:12px;
-  padding:6px 10px; display:flex; flex-direction:column; align-items:center; line-height:1; min-width:58px;}
+  padding:6px 10px; display:flex; flex-direction:column; align-items:center; line-height:1; min-width:62px;}
 .level-chip .lbl{font-size:9px; letter-spacing:.16em; color:var(--muted); font-weight:700;}
 .level-chip .num{font-size:17px; font-weight:800; font-variant-numeric:tabular-nums; margin-top:3px;}
 .hud-mid{flex:1; min-width:0; display:flex; flex-direction:column; gap:5px;}
 .progress{height:5px; background:#1B2540; border-radius:99px; overflow:hidden;}
 #progressFill{height:100%; width:0%; background:var(--green); border-radius:99px;
   transition:width .35s cubic-bezier(.22,1,.36,1);}
-.count{font-size:12px; color:var(--muted); text-align:center; font-variant-numeric:tabular-nums;
-  display:inline-block; align-self:center;}
+#progressFill.low{background:var(--red); transition:width .12s linear;}
+.count{font-size:12px; color:var(--muted); text-align:center; font-variant-numeric:tabular-nums;}
 .count.pop{animation:pop .32s ease;}
 @keyframes pop{40%{transform:scale(1.2); color:var(--green);}}
 .hud-actions{display:flex; gap:7px;}
@@ -69,10 +71,12 @@ button{font-family:inherit; touch-action:manipulation;}
   stroke-linecap:round; stroke-linejoin:round; vertical-align:-3px;}
 .btn svg.fill{fill:currentColor; stroke:none;}
 .btn.small{padding:9px 14px; font-size:13px; display:inline-flex; align-items:center; gap:8px;}
+.btn.small svg{width:16px; height:16px;}
 .btn.danger{border-color:rgba(255,100,124,.55); color:var(--red);}
 .btn-primary{background:var(--green); color:#06281A; border-color:transparent; font-size:17px;
   box-shadow:0 8px 24px -10px rgba(53,230,161,.55), inset 0 1px 0 rgba(255,255,255,.28);}
-.icon-btn:focus-visible,.btn:focus-visible{outline:2px solid var(--blue); outline-offset:2px;}
+.icon-btn:focus-visible,.btn:focus-visible,.mode-card:focus-visible,.swatch:focus-visible{
+  outline:2px solid var(--blue); outline-offset:2px;}
 
 /* ============================= STAGE ============================= */
 #stage{flex:1; min-height:0; position:relative;}
@@ -89,24 +93,36 @@ button{font-family:inherit; touch-action:manipulation;}
 .title{font-size:clamp(30px,9vw,38px); letter-spacing:.08em; font-weight:800; margin:0; line-height:1;}
 .title span{color:var(--green);}
 .tagline{color:var(--muted); font-size:13.5px; margin:0; text-align:center;}
-#demo{width:min(58vw,220px); height:min(58vw,220px); display:block;}
-#demoCaption{min-height:19px; font-size:13px; color:var(--muted); text-align:center;}
-.howto{display:flex; flex-direction:column; gap:8px; background:var(--panel);
-  border:1px solid var(--line); border-radius:14px; padding:13px 16px; width:100%;}
-.howto .row{display:flex; gap:11px; align-items:center; font-size:13.5px; color:var(--muted); line-height:1.4;}
-.howto .row b{color:var(--text); font-weight:600;}
-.howto svg{width:19px; height:19px; fill:none; stroke:currentColor; stroke-width:2;
-  stroke-linecap:round; stroke-linejoin:round; flex:none;}
-.howto .row:nth-child(1) svg{color:var(--blue);}
-.howto .row:nth-child(2) svg{color:var(--red);}
-.howto .row:nth-child(3) svg{color:var(--green);}
 .btn-play{display:flex; align-items:center; justify-content:center; gap:10px;
-  width:min(100%,260px); padding:15px 30px; font-size:18px; border-radius:16px;}
-.home-meta{font-size:13px; color:var(--muted);}
+  width:min(100%,280px); padding:15px 30px; border-radius:16px;}
+#demo{width:min(56vw,200px); height:min(56vw,200px); display:block;}
+#demoCaption{min-height:19px; font-size:13px; color:var(--muted); text-align:center;}
+.mode-cards{display:grid; grid-template-columns:1fr 1fr; gap:10px; width:100%;}
+.mode-card{background:var(--panel); border:1px solid var(--line); border-radius:14px;
+  padding:12px 8px 10px; display:flex; flex-direction:column; align-items:center; gap:4px;
+  color:var(--text); cursor:pointer; transition:transform .12s ease, background .15s ease;}
+.mode-card:active{transform:scale(.96); background:#1B2745;}
+.mode-card svg{width:20px; height:20px; stroke:var(--blue); fill:none; stroke-width:2;
+  stroke-linecap:round; stroke-linejoin:round;}
+.mode-card.rush svg{stroke:var(--amber);}
+.mode-card b{font-size:14px;}
+.mode-card .st{font-size:11px; color:var(--muted); text-align:center; line-height:1.3;}
+.palette-row{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
+.pal-lbl{font-size:10px; color:var(--muted); letter-spacing:.14em; font-weight:700;}
+#swatches{display:flex; gap:8px;}
+.swatch{width:40px; height:30px; border-radius:9px; border:1px solid var(--line);
+  background:#182138; display:flex; align-items:center; justify-content:center; gap:3px;
+  cursor:pointer; position:relative; padding:0;}
+.swatch:active{transform:scale(.93);}
+.swatch .dot{width:7px; height:14px; border-radius:3px;}
+.swatch.sel{border-color:var(--green); box-shadow:0 0 0 1px var(--green);}
+.swatch.locked{opacity:.4;}
+.swatch.locked::after{content:attr(data-lv); position:absolute; left:50%; transform:translateX(-50%);
+  bottom:-14px; font-size:9px; color:var(--muted); font-weight:700;}
+.home-meta{font-size:13px; color:var(--muted); text-align:center;}
 .home-foot{display:flex; gap:10px; align-items:center;}
 #soundBtnHome[aria-pressed="true"] .ic-off{display:none;}
 #soundBtnHome[aria-pressed="false"] .ic-on{display:none;}
-.home-foot .btn svg{width:16px; height:16px;}
 
 /* ============================= OVERLAYS ============================= */
 .overlay{position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
@@ -123,15 +139,19 @@ button{font-family:inherit; touch-action:manipulation;}
 .overlay-text{margin:0 0 8px; text-align:center; color:var(--muted); font-size:14px; line-height:1.45;}
 .stats{display:flex; justify-content:center; background:#101A30; border:1px solid var(--line);
   border-radius:14px; padding:12px 4px;}
-.stat{flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;}
+.stat{flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; min-width:0;}
 .stat + .stat{border-left:1px solid var(--line);}
-.stat b{font-size:20px; font-variant-numeric:tabular-nums;}
-.stat span{font-size:10.5px; color:var(--muted); letter-spacing:.09em; text-transform:uppercase;}
-.badge{display:inline-flex; align-items:center; gap:6px; align-self:center;
-  background:rgba(53,230,161,.12); color:var(--green); border:1px solid rgba(53,230,161,.35);
-  padding:5px 12px; border-radius:99px; font-size:12px; font-weight:700;}
-.badge svg{width:13px; height:13px; fill:currentColor; stroke:none;}
+.stat b{font-size:19px; font-variant-numeric:tabular-nums;}
+.stat span{font-size:10px; color:var(--muted); letter-spacing:.07em; text-transform:uppercase;}
 .next-line{margin:2px 0 4px; text-align:center; color:var(--muted); font-size:13px; line-height:1.4;}
+.stars{display:flex; gap:8px; justify-content:center; margin:2px 0 0;}
+.star{width:30px; height:30px;}
+.star path{fill:none; stroke:#3A4A6B; stroke-width:1.6; stroke-linejoin:round;}
+.star.on path{fill:var(--amber); stroke:var(--amber);}
+.star.pop{animation:starPop .45s cubic-bezier(.34,1.56,.64,1) backwards;}
+.stars .star:nth-child(2).pop{animation-delay:.12s;}
+.stars .star:nth-child(3).pop{animation-delay:.24s;}
+@keyframes starPop{from{transform:scale(0) rotate(-30deg);}}
 
 /* ============================= TOAST ============================= */
 #toast{position:fixed; left:50%; bottom:calc(26px + var(--sab)); transform:translate(-50%,10px);
@@ -144,10 +164,16 @@ button{font-family:inherit; touch-action:manipulation;}
 @media (max-height:480px){
   #hud{padding:6px 8px 4px; gap:8px;}
   .icon-btn{width:36px; height:36px; border-radius:10px;}
-  .level-chip{min-width:48px; padding:4px 8px;}
+  .level-chip{min-width:50px; padding:4px 8px;}
   .level-chip .num{font-size:15px;}
   .count{display:none;}
   #boardWrap{inset:4px 8px calc(8px + var(--sab)) 8px;}
+}
+@media (max-width:359px){
+  .icon-btn{width:36px; height:36px;}
+  .level-chip{min-width:48px; padding:4px 7px;}
+  #hud{gap:6px; padding:8px 8px 4px;}
+  .mode-cards{gap:8px;}
 }
 @media (prefers-reduced-motion:reduce){
   *{transition-duration:.01ms!important; animation-duration:.01ms!important;}
@@ -160,14 +186,14 @@ button{font-family:inherit; touch-action:manipulation;}
   <!-- ================= GAME SCREEN ================= -->
   <section id="game" class="screen hidden" aria-label="Arrow47 game">
     <header id="hud">
-      <div class="level-chip" aria-label="Current level">
-        <span class="lbl">LEVEL</span><span class="num" id="levelNum">1</span>
+      <div class="level-chip">
+        <span class="lbl" id="modeLbl">LEVEL</span><span class="num" id="levelNum">1</span>
       </div>
       <div class="hud-mid">
         <div class="progress" id="progressWrap" role="progressbar" aria-label="Level progress">
           <div id="progressFill"></div>
         </div>
-        <span class="count" id="arrowsLeft">— arrows left</span>
+        <span class="count" id="hudCount">— arrows left</span>
       </div>
       <div class="hud-actions">
         <button class="icon-btn" id="undoBtn" aria-label="Undo last move" title="Undo (U)">
@@ -176,7 +202,7 @@ button{font-family:inherit; touch-action:manipulation;}
         <button class="icon-btn" id="hintBtn" aria-label="Show hint" title="Hint (H)">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.8.7 1.5 1.4 1.5 2.5h5c0-1.1.7-1.8 1.5-2.5A6 6 0 0 0 12 3Z"/></svg>
         </button>
-        <button class="icon-btn" id="restartBtn" aria-label="Restart level" title="Restart (R)">
+        <button class="icon-btn" id="restartBtn" aria-label="Restart" title="Restart (R)">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/></svg>
         </button>
         <button class="icon-btn" id="pauseBtn" aria-label="Pause" title="Pause (P)">
@@ -192,7 +218,7 @@ button{font-family:inherit; touch-action:manipulation;}
   <!-- ================= HOME SCREEN ================= -->
   <section id="home" class="screen" aria-label="Arrow47 home">
     <div class="home-inner">
-      <svg class="logo" viewBox="0 0 96 96" width="74" height="74" aria-hidden="true">
+      <svg class="logo" viewBox="0 0 96 96" width="70" height="70" aria-hidden="true">
         <rect x="4" y="22" width="60" height="60" rx="14" fill="#121A2D" stroke="rgba(255,255,255,.1)"/>
         <g transform="translate(22,44)"><path d="M-8 -3H0V-6L8 0 0 6V3H-8Z" fill="#55B8FF" stroke="#55B8FF" stroke-width="2" stroke-linejoin="round"/></g>
         <g transform="translate(46,62) rotate(90)"><path d="M-8 -3H0V-6L8 0 0 6V3H-8Z" fill="#FFC94D" stroke="#FFC94D" stroke-width="2" stroke-linejoin="round"/></g>
@@ -204,45 +230,47 @@ button{font-family:inherit; touch-action:manipulation;}
       </svg>
       <h1 class="title">ARROW<span>47</span></h1>
       <p class="tagline">Free every arrow. One tap at a time.</p>
-      <canvas id="demo" aria-hidden="true"></canvas>
-      <div id="demoCaption"></div>
-      <div class="howto">
-        <div class="row">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h14"/><path d="M13 7l5 5-5 5"/></svg>
-          <span><b>Tap an arrow</b> to launch it toward the board edge.</span>
-        </div>
-        <div class="row">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/></svg>
-          <span>It escapes only if its <b>path is clear</b> — no arrow in the way.</span>
-        </div>
-        <div class="row">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg>
-          <span><b>Free every arrow</b> to clear the level. Levels are endless.</span>
-        </div>
-      </div>
       <button class="btn btn-primary btn-play" id="playBtn">
         <svg viewBox="0 0 24 24" class="fill" aria-hidden="true"><path d="M7 4.5v15l13-7.5Z"/></svg>
-        Play
+        <span id="playLabel">Play</span>
       </button>
-      <div class="home-meta" id="homeMeta">Your run starts at Level 1</div>
+      <canvas id="demo" aria-hidden="true"></canvas>
+      <div id="demoCaption"></div>
+      <div class="mode-cards">
+        <button class="mode-card" id="dailyBtn" aria-label="Daily challenge">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>
+          <b>Daily</b>
+          <span class="st" id="dailyStatus">New puzzle ready</span>
+        </button>
+        <button class="mode-card rush" id="rushBtn" aria-label="Rush mode">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 5 13h5l-1 9 8-11h-5Z"/></svg>
+          <b>Rush</b>
+          <span class="st" id="rushStatus">75-second sprint</span>
+        </button>
+      </div>
+      <div class="palette-row">
+        <span class="pal-lbl">ARROWS</span>
+        <div id="swatches" role="group" aria-label="Arrow color palette"></div>
+      </div>
       <div class="home-foot">
-        <button class="btn small" id="soundBtnHome" aria-pressed="true" aria-label="Toggle sound">
+        <button class="btn small sound-only" id="soundBtnHome" aria-pressed="true" aria-label="Toggle sound">
           <svg class="ic-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6.5 9H3.5v6h3L11 19Z"/><path d="M15 9a4.5 4.5 0 0 1 0 6M17.5 6.5a8 8 0 0 1 0 11"/></svg>
           <svg class="ic-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6.5 9H3.5v6h3L11 19Z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>
           <span>Sound</span>
         </button>
         <button class="btn small" id="resetBtn">Reset progress</button>
       </div>
+      <div class="home-meta" id="homeMeta"></div>
     </div>
   </section>
 
   <!-- ================= OVERLAYS ================= -->
-  <div class="overlay" id="ovPause" role="dialog" aria-modal="true" aria-labelledby="pauseTitle" hidden>
+  <div class="overlay" id="ovPause" role="dialog" aria-modal="true" aria-labelledby="pTitle" hidden>
     <div class="panel">
-      <h2 id="pauseTitle">Paused</h2>
+      <h2 id="pTitle">Paused</h2>
       <button class="btn btn-primary" id="resumeBtn">Resume</button>
       <button class="btn" id="pauseRestartBtn">Restart level</button>
-      <button class="btn" id="pauseSoundBtn">Sound: On</button>
+      <button class="btn sound-only" id="pauseSoundBtn">Sound: On</button>
       <button class="btn" id="pauseHomeBtn">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/></svg>
         Back to home
@@ -252,16 +280,19 @@ button{font-family:inherit; touch-action:manipulation;}
 
   <div class="overlay" id="ovComplete" role="dialog" aria-modal="true" aria-labelledby="cTitle" hidden>
     <div class="panel">
-      <div class="badge" id="flawlessBadge" hidden>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.8-4.5 4.2 1.1 6L12 16.8 6.6 19.6l1.1-6L3.2 9.4l6.1-.8Z"/></svg>
-        Flawless
+      <div class="stars" id="starsRow" role="img" aria-label="Stars earned">
+        <svg class="star" id="star1" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.8-4.5 4.2 1.1 6L12 16.8 6.6 19.6l1.1-6L3.2 9.4l6.1-.8Z"/></svg>
+        <svg class="star" id="star2" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.8-4.5 4.2 1.1 6L12 16.8 6.6 19.6l1.1-6L3.2 9.4l6.1-.8Z"/></svg>
+        <svg class="star" id="star3" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.8-4.5 4.2 1.1 6L12 16.8 6.6 19.6l1.1-6L3.2 9.4l6.1-.8Z"/></svg>
       </div>
       <h2 id="cTitle">Level clear</h2>
       <div class="stats">
+        <div class="stat"><b id="stArrows">0</b><span>Arrows</span></div>
         <div class="stat"><b id="stMoves">0</b><span>Moves</span></div>
         <div class="stat"><b id="stHints">0</b><span>Hints</span></div>
-        <div class="stat"><b id="stArrows">0</b><span>Arrows</span></div>
+        <div class="stat"><b id="stBlocked">0</b><span>Blocked</span></div>
       </div>
+      <p class="next-line" id="cSub"></p>
       <p class="next-line" id="nextLine"></p>
       <button class="btn btn-primary" id="continueBtn">
         Continue
@@ -271,12 +302,26 @@ button{font-family:inherit; touch-action:manipulation;}
     </div>
   </div>
 
-  <div class="overlay" id="ovStuck" role="dialog" aria-modal="true" aria-labelledby="stuckTitle" hidden>
+  <div class="overlay" id="ovStuck" role="dialog" aria-modal="true" aria-labelledby="stTitle" hidden>
     <div class="panel">
-      <h2 id="stuckTitle">Boxed in</h2>
-      <p class="overlay-text">No arrow can escape — every path is blocked. Step back one move or start the level over.</p>
+      <h2 id="stTitle">Boxed in</h2>
+      <p class="overlay-text">No arrow can escape right now — every path is blocked.</p>
       <button class="btn btn-primary" id="stuckUndoBtn">Undo last move</button>
       <button class="btn" id="stuckRestartBtn">Restart level</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="ovResults" role="dialog" aria-modal="true" aria-labelledby="rTitle" hidden>
+    <div class="panel">
+      <h2 id="rTitle">Time's up</h2>
+      <div class="stats">
+        <div class="stat"><b id="stScore">0</b><span>Score</span></div>
+        <div class="stat"><b id="stBoards">0</b><span>Boards</span></div>
+        <div class="stat"><b id="stCombo">×0</b><span>Best combo</span></div>
+      </div>
+      <p class="next-line" id="resLine"></p>
+      <button class="btn btn-primary" id="againBtn">Play again</button>
+      <button class="btn" id="resHomeBtn">Home</button>
     </div>
   </div>
 
@@ -287,34 +332,49 @@ button{font-family:inherit; touch-action:manipulation;}
 (function(){
 'use strict';
 /* =====================================================================
-   Arrow47 — architecture map
-   Storage        local persistence (safe, mirrored in memory)
-   AudioMgr       lazy Web Audio synth (no files, no autoplay issues)
-   Platform       YouTube Playables adapter (feature-detected, browser fallback)
-   Generator      procedural puzzle generation (reverse construction)
-   solveSession   bounded DFS solver used for hints & solvability
+   Arrow47 v2 — architecture map
+   Platform       YouTube Playables adapter (official SDK, feature-detected;
+                   cloud load-before-save queue, host audio, pause/resume,
+                   optional sendScore). Safe browser fallback, no fake SDK.
+   Storage        localStorage — STANDALONE BROWSER FALLBACK ONLY. Never used
+                   for persistent progress while running inside Playables.
+   AudioMgr       lazy Web Audio synth; gated by host audio state in Playables
+   Generator      reverse-construction generation + metric analyzer
+                   (initial openings, average branching) + anti-repetition
+                   signatures. Every board is solvable by construction and
+                   re-verified by simulation.
+   solveSession   bounded DFS solver used for safe hints (game-state only)
    Session        authoritative game state (grid space, no pixels)
-   Renderer       Canvas 2D drawing (never decides move validity)
-   Demo           scripted home-screen tutorial loop
-   UI / App       DOM wiring, screens, overlays, game flow
+   Renderer       Canvas 2D drawing; never decides move validity
+   Demo           scripted home-screen teaching loop
+   Rush           time-attack controller (75s + board bonuses)
+   UI / App       DOM wiring, screens, overlays, modes, tutorial, flow
    ===================================================================== */
 
-/* ---------------------- shared constants & helpers ---------------------- */
+/* ---------------------- constants & helpers ---------------------- */
 const DIRS=[
   {dx: 1,dy: 0},{dx: 1,dy: 1},{dx: 0,dy: 1},{dx:-1,dy: 1},
   {dx:-1,dy: 0},{dx:-1,dy:-1},{dx: 0,dy:-1},{dx: 1,dy:-1}
 ];
 for(const d of DIRS) d.ang=Math.atan2(d.dy,d.dx);
 const ORTH=[0,2,4,6], DIAG=[1,3,5,7];
-const COLORS=['#55B8FF','#35E6A1','#FFC94D','#B48CFF','#FF9E7D'];
-const REDUCED=(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)||false;
 
+const PALETTES=[
+  {name:'Classic',unlock:1, colors:['#55B8FF','#35E6A1','#FFC94D','#B48CFF','#FF9E7D']},
+  {name:'Ember',  unlock:10,colors:['#FF6B6B','#FFD166','#4ECDC4','#C77DFF','#FFA94D']},
+  {name:'Neon',   unlock:25,colors:['#00F5D4','#00BBF9','#F15BB5','#FEE440','#9B5DE5']},
+  {name:'Aurora', unlock:50,colors:['#60A5FA','#22D3EE','#A78BFA','#2DD4BF','#F0ABFC']}
+];
+
+const RUSH_START=75000, RUSH_CAP=90000, RUSH_BONUS=10000, RUSH_HINT_PENALTY=5000;
+
+const REDUCED=(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)||false;
 const $=id=>document.getElementById(id);
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 const lerp=(a,b,k)=>a+(b-a)*k;
 const easeOutBack=k=>{const c=1.70158;return 1+(c+1)*Math.pow(k-1,3)+c*Math.pow(k-1,2);};
 
-function mulberry32(seed){ // deterministic, reproducible RNG
+function mulberry32(seed){ // deterministic RNG — same seed, same board
   let a=seed>>>0;
   return function(){
     a|=0; a=(a+0x6D2B79F5)|0;
@@ -328,7 +388,13 @@ function hashSeed(runSeed,level){
   h=Math.imul(h^(h>>>16),0x85EBCA6B); h^=h>>>13;
   return h>>>0;
 }
-function stepsToEdge(cell,dir,cols,rows){ // grid steps until off the board
+function strHash(s){ // FNV-1a — deterministic daily puzzle seed
+  let h=2166136261;
+  for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); }
+  return h>>>0;
+}
+function dailyKey(){ const d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+function stepsToEdge(cell,dir,cols,rows){
   const {dx,dy}=DIRS[dir];
   const x=cell%cols, y=(cell/cols)|0;
   const sx=dx>0?cols-x:dx<0?x+1:Infinity;
@@ -352,7 +418,7 @@ function roundRect(ctx,x,y,w,h,r){
   ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r);
   ctx.closePath();
 }
-/* The one arrow shape used everywhere: a fat rounded arrow pointing +x. */
+/* The single arrow shape used everywhere: a fat rounded arrow pointing +x. */
 function drawArrow(ctx,x,y,ang,cell,color,alpha,scale){
   alpha=alpha==null?1:alpha; scale=scale==null?1:scale;
   const c=cell, aW=0.15*c, bW=0.30*c, xTip=0.35*c, xHead=0.07*c, xBack=-0.33*c;
@@ -364,16 +430,16 @@ function drawArrow(ctx,x,y,ang,cell,color,alpha,scale){
   ctx.save();
   ctx.translate(x,y); ctx.rotate(ang); ctx.scale(scale,scale); ctx.globalAlpha=alpha;
   ctx.lineJoin='round'; ctx.lineWidth=0.10*c;
-  ctx.save(); ctx.translate(0,0.07*c); path();           // soft drop shadow
+  ctx.save(); ctx.translate(0,0.07*c); path();
   ctx.strokeStyle='rgba(3,7,16,.5)'; ctx.fillStyle='rgba(3,7,16,.5)'; ctx.stroke(); ctx.fill();
   ctx.restore();
   path(); ctx.strokeStyle=color; ctx.fillStyle=color; ctx.stroke(); ctx.fill();
   ctx.restore();
 }
 
-/* ---------------------- local storage (fail-safe) ---------------------- */
+/* ---------------------- localStorage (standalone fallback only) ---------------------- */
 const Storage={
-  KEY:'arrow47.save.v1', mem:null,
+  KEY:'arrow47.save.v2', mem:null,
   read(){
     try{
       const raw=localStorage.getItem(this.KEY);
@@ -397,7 +463,7 @@ const AudioMgr=(()=>{
     }catch(e){ ctx=null; }
   }
   function tone(o){
-    if(!ctx||!enabled) return;
+    if(!ctx) return;
     try{
       const t0=ctx.currentTime+(o.delay||0);
       const osc=ctx.createOscillator(), g=ctx.createGain();
@@ -418,85 +484,128 @@ const AudioMgr=(()=>{
     hint(){ tone({freq:740,dur:0.09,vol:0.11}); tone({freq:1108,dur:0.12,vol:0.09,delay:0.09}); },
     undo(){ tone({freq:620,end:330,type:'triangle',dur:0.12,vol:0.13}); },
     complete(){ [523,659,784,1046].forEach((f,i)=>tone({freq:f,type:'triangle',dur:0.16,vol:0.15,delay:i*0.09})); },
-    stuck(){ tone({freq:220,end:140,type:'sawtooth',dur:0.3,vol:0.07}); },
     click(){ tone({freq:520,end:640,type:'triangle',dur:0.06,vol:0.10}); }
   };
   return {
     get enabled(){return enabled;},
-    setEnabled(v){ enabled=!!v; if(enabled){ this.resumeCtx(); } },
-    unlock(){ ensure(); this.resumeCtx(); },       // called from user gestures only
+    setEnabled(v){ enabled=!!v; if(enabled) this.resumeCtx(); },
+    unlock(){ ensure(); this.resumeCtx(); },   // user gestures only
     suspend(){ try{ if(ctx&&ctx.state==='running') ctx.suspend(); }catch(e){} },
     resumeCtx(){ try{ if(ctx&&ctx.state==='suspended') ctx.resume(); }catch(e){} },
-    play(name){ if(!enabled) return; ensure(); if(!ctx) return; if(SFX[name]) SFX[name](); }
+    play(name){
+      if(!enabled) return;
+      if(Platform.mode==='playables'&&!App.hostAudio) return; // host owns audio
+      ensure(); if(!ctx) return; if(SFX[name]) SFX[name]();
+    }
   };
 })();
 
-/* ---------------------- platform adapter (YouTube Playables) ----------------------
-   Every SDK call is feature-detected and wrapped, so standalone browsers never
-   throw and nothing is faked. Method names follow the official Playables docs
-   (firstFrameReady / gameReady / saveGame / loadGame / gameplayStart /
-   gameplayStop / onPause / onResume / getAudioState); verify exact signatures
-   against the current docs when integrating:
-   https://developers.google.com/youtube/gaming/playables/certification/requirements  */
+/* ---------------------- YouTube Playables adapter ----------------------
+   Official SDK (https://developers.google.com/youtube/gaming/playables):
+   the script is injected only when running inside a host context (iframe /
+   YouTube host), so standalone and offline browsers never fetch it and never
+   depend on it. Every call is feature-detected and wrapped — nothing is
+   faked and no errors leak when APIs are absent. Method names follow the
+   official docs (firstFrameReady / gameReady / loadGame / saveGame /
+   onPause / onResume / getAudioState / gameplayStart / gameplayStop /
+   sendScore); re-verify signatures against current docs at submission.  */
 const Platform=(()=>{
-  let sdk=null, mode='browser';
+  const SDK_URL='https://www.youtube.com/game_api/v1';
+  let sdk=null, mode='browser', ready=false, readyCb=null;
+  let cloudLoaded=false, pendingSave=null;
+
+  function settle(m){ if(ready) return; mode=m; ready=true; if(readyCb) readyCb(m); }
+  function inHost(){
+    try{ if(window.top!==window.self) return true; }catch(e){ return true; }
+    return /(^|\.)(youtube(-nocookie)?\.com|ytimg\.com)$/.test(location.hostname||'');
+  }
+  function call(name){
+    if(!sdk) return false;
+    try{
+      if(typeof sdk[name]==='function'){
+        if(arguments.length>1) sdk[name](arguments[1]);
+        else sdk[name]();
+        return true;
+      }
+    }catch(e){}
+    return false;
+  }
+  function flush(){ // cloud saves only after loadGame has completed
+    if(pendingSave===null||!cloudLoaded||mode!=='playables') return;
+    call('saveGame',pendingSave);
+    pendingSave=null;
+  }
   return {
-    get mode(){return mode;},
-    detect(){
-      try{
-        const cands=[window.YTPlayables, window.Playables];
-        for(const c of cands){ if(c&&typeof c==='object'){ sdk=c; mode='playables'; return; } }
-      }catch(e){}
-      sdk=null; mode='browser';
+    get mode(){return mode;}, get ready(){return ready;},
+    init(cb){
+      readyCb=cb;
+      const host=inHost();
+      if(window.YTPlayables&&host){ sdk=window.YTPlayables; settle('playables'); return; }
+      if(!host){ settle('browser'); return; } // standalone: no fetch, no SDK
+      // Host context: load the official SDK, then wait (bounded) for it.
+      const s=document.createElement('script');
+      s.src=SDK_URL; s.async=true;
+      document.head.appendChild(s);
+      let tries=0;
+      const iv=setInterval(()=>{
+        if(window.YTPlayables){ sdk=window.YTPlayables; clearInterval(iv); settle('playables'); }
+        else if(++tries>=20){ clearInterval(iv); settle('browser'); }
+      },100);
     },
-    _call(name,...args){
-      try{ if(sdk&&typeof sdk[name]==='function'){ sdk[name](...args); return true; } }catch(e){}
-      return false;
-    },
-    firstFrameReady(){ this._call('firstFrameReady'); },
-    gameReady(){ this._call('gameReady'); },
-    gameplayStart(){ this._call('gameplayStart'); },
-    gameplayStop(){ this._call('gameplayStop'); },
-    saveGame(json,dataObj){
-      // Platform save first; localStorage only as standalone fallback.
-      if(!this._call('saveGame',json)) Storage.write(dataObj);
-    },
-    loadCloudSave(cb){
-      // If the host provides saved data, hand it back for adoption.
+    firstFrameReady(){ call('firstFrameReady'); },
+    gameReady(){ call('gameReady'); },
+    gameplayStart(){ call('gameplayStart'); },
+    gameplayStop(){ call('gameplayStop'); },
+    loadCloud(cb){ // must resolve before any saveGame call
+      if(mode!=='playables'){ cloudLoaded=true; cb(null); return; }
+      let answered=false;
       try{
         if(sdk&&typeof sdk.loadGame==='function'){
           sdk.loadGame(data=>{
-            try{
-              if(typeof data==='string'&&data) cb(JSON.parse(data));
-              else if(data&&typeof data==='object') cb(data);
-            }catch(e){}
+            answered=true; cloudLoaded=true; flush();
+            let parsed=null;
+            try{ parsed=(typeof data==='string'&&data)?JSON.parse(data):(data||null); }catch(e){}
+            cb(parsed);
           });
-          return true;
+          setTimeout(()=>{ if(!answered){ answered=true; cloudLoaded=true; flush(); cb(null); } },2000);
+          return;
         }
       }catch(e){}
-      return false;
+      cloudLoaded=true; cb(null);
+    },
+    save(json,obj){
+      if(mode==='browser'){ Storage.write(obj); return; } // standalone fallback only
+      pendingSave=json;         // latest-only queue, bounded
+      flush();
+    },
+    sendScore(n){ call('sendScore',n|0); }, // optional score reporting, guarded
+    audioOn(){
+      try{
+        if(mode==='playables'&&sdk&&typeof sdk.getAudioState==='function'){
+          const st=sdk.getAudioState();
+          if(typeof st==='string') return st!=='off'&&st!=='muted';
+          if(st&&typeof st==='object'){
+            if(typeof st.muted==='boolean') return !st.muted;
+            if(typeof st.audio==='boolean') return st.audio;
+            if(typeof st.audioOn==='boolean') return st.audioOn;
+          }
+        }
+      }catch(e){}
+      return true;
     },
     bindLifecycle(h){
-      try{
-        if(sdk&&typeof sdk.onPause==='function') sdk.onPause(h.onPause);
-        if(sdk&&typeof sdk.onResume==='function') sdk.onResume(h.onResume);
-        if(sdk&&typeof sdk.getAudioState==='function'){
-          const st=sdk.getAudioState();
-          if(st&&h.onAudioStateChange) h.onAudioStateChange(st);
-        }
-      }catch(e){}
-      // Browser fallback lifecycle (also fires under Playables via the page).
-      document.addEventListener('visibilitychange',()=>{ if(document.hidden) h.onPause(); });
+      if(mode==='playables'){ call('onPause',h.onPause); call('onResume',h.onResume); }
+      document.addEventListener('visibilitychange',()=>{ document.hidden?h.onPause():h.onResume(); });
     }
   };
 })();
 
 /* ---------------------- puzzle generator ----------------------
-   Reverse construction: arrows are placed one by one, and each new arrow's
-   path to the boundary must be clear of all previously placed arrows.
-   Removing them in reverse placement order is therefore a guaranteed
-   solution, which verify() re-checks by simulation. Generation is O(cells),
-   runs in well under a millisecond for these board sizes. */
+   Reverse construction: each arrow is placed only where its path to the
+   boundary is clear of all previously placed arrows, so removing them in
+   reverse placement order is a guaranteed solution (verify() re-checks it
+   by simulation). analyze() measures structural difficulty (openings and
+   branching) so levels progress smoothly instead of spiking. */
 const Generator={
   levelParams(level){
     const s=level-1;
@@ -504,9 +613,35 @@ const Generator={
     const rows=Math.min(cols+1+Math.floor(s/24),10);
     const density=Math.min(0.34+s*0.0085,0.55);
     const target=Math.min(Math.round(cols*rows*density),28);
-    const minAccept=Math.max(4,Math.round(target*0.75)); // used only for retries/logic
-    const pDiag=level<10?0:Math.min((s-9)*0.025,0.4);    // diagonals arrive gradually
-    return {cols,rows,target,minAccept,pDiag};
+    const pDiag=level<10?0:Math.min((s-9)*0.025,0.4);
+    return {cols,rows,target,pDiag};
+  },
+  targets(level){ // desired difficulty band: openings & branching shrink slowly
+    if(level<=3) return {init:3.4, avg:4.2};
+    const s=level-4;
+    return {init:Math.max(1.7,3.3-s*0.05), avg:Math.max(2.0,4.4-s*0.055)};
+  },
+  analyze(b){ // openings at start + branching along the recorded solution
+    const {cols,rows,arrows}=b, n=arrows.length;
+    const occ=new Uint8Array(cols*rows);
+    for(const a of arrows) occ[a.cell]=1;
+    const order=arrows.slice().reverse(); // removal order
+    const isClear=a=>pathClearFrom(a.cell%cols,(a.cell/cols)|0,a.dir,occ,cols,rows);
+    let initial=0, sum=0, min=Infinity;
+    for(let i=0;i<n;i++){
+      let cnt=0;
+      for(let j=i;j<n;j++) if(isClear(order[j])) cnt++;
+      if(i===0) initial=cnt;
+      if(cnt<min) min=cnt;
+      sum+=cnt;
+      occ[order[i].cell]=0;
+    }
+    return {initial, avg:n?sum/n:0, min};
+  },
+  sig(b,m){ // structural signature for anti-repetition
+    const h=new Array(8).fill(0);
+    for(const a of b.arrows) h[a.dir]++;
+    return b.cols+'x'+b.rows+':'+b.arrows.length+':'+h.join('')+':'+m.initial;
   },
   build(p,rng){
     const {cols,rows}=p, n=cols*rows;
@@ -521,52 +656,60 @@ const Generator={
       for(const d of dirs){
         if(pathClearFrom(x,y,d,occ,cols,rows)){
           occ[ci]=1;
-          arrows.push({cell:ci,dir:d,color:(rng()*COLORS.length)|0});
+          arrows.push({cell:ci,dir:d,color:(rng()*PALETTES[0].colors.length)|0});
           break;
         }
       }
     }
     return {cols,rows,arrows};
   },
-  verify(b){ // simulate the recorded solution order; must clear the board
+  verify(b){ // simulate the recorded solution; must clear the board
     const {cols,rows,arrows}=b;
     const occ=new Uint8Array(cols*rows);
     for(const a of arrows) occ[a.cell]=1;
     for(let i=arrows.length-1;i>=0;i--){
-      const a=arrows[i], x=a.cell%cols, y=(a.cell/cols)|0;
-      if(!pathClearFrom(x,y,a.dir,occ,cols,rows)) return false;
+      const a=arrows[i];
+      if(!pathClearFrom(a.cell%cols,(a.cell/cols)|0,a.dir,occ,cols,rows)) return false;
       occ[a.cell]=0;
     }
     return true;
   },
   finish(b,level,seed){
     b.arrows.forEach((a,i)=>{a.id=i;});
-    b.level=level; b.seed=seed;
-    b.solution=b.arrows.map((_,i)=>i).reverse(); // removal order = reverse placement
+    b.level=level; b.seed=seed>>>0;
+    b.solution=b.arrows.map((_,i)=>i).reverse();
+    if(!b.metrics) b.metrics=this.analyze(b);
     return b;
   },
-  generate(level,seed){
+  generate(level,seed,opts){
+    opts=opts||{};
     seed=seed>>>0;
-    const p=this.levelParams(level);
-    let best=null;
-    for(let i=0;i<14;i++){ // bounded retries, deterministic per seed
+    const p=this.levelParams(level), t=this.targets(level);
+    const K=level<=3?12:8; // bounded retries, deterministic per seed
+    let best=null, bestFit=Infinity, fb=null;
+    for(let i=0;i<K;i++){
       const b=this.build(p,mulberry32((seed+Math.imul(i+1,0x9E3779B1))>>>0));
       if(!b.arrows.length||!this.verify(b)) continue;
-      if(b.arrows.length>=p.target) return this.finish(b,level,seed);
-      if(!best||b.arrows.length>best.arrows.length) best=b; // keep best partial (still solvable)
+      if(!fb) fb=b; // any verified board guarantees termination
+      const m=this.analyze(b); b.metrics=m;
+      if(level<=3&&m.initial<3) continue; // early levels: several openings
+      if(level<=8&&m.initial<2) continue;
+      const fit=Math.abs(m.initial-t.init)+0.7*Math.abs(m.avg-t.avg)
+              +((opts.recent&&opts.recent.indexOf(this.sig(b,m))>=0)?1.5:0);
+      if(fit<bestFit){ bestFit=fit; best=b; }
+      if(fit<=0.6) break; // close enough to target — stop early
     }
-    if(best) return this.finish(best,level,seed);
-    // Emergency fallback (unreachable in practice): one row of right-facing
-    // arrows — always solvable by peeling right to left. Guarantees termination.
-    const cols=Math.max(3,p.cols), k=Math.min(4,cols), arrows=[];
-    for(let i=0;i<k;i++) arrows.push({cell:i,dir:0,color:i%COLORS.length});
-    return this.finish({cols,rows:Math.max(4,p.rows),arrows},level,seed);
+    let chosen=best||fb;
+    if(!chosen){ // emergency fallback (unreachable in practice): always solvable
+      const cols=Math.max(3,p.cols), k=Math.min(4,cols), arrows=[];
+      for(let i=0;i<k;i++) arrows.push({cell:i,dir:0,color:i%5});
+      return this.finish({cols,rows:Math.max(4,p.rows),arrows},level,seed);
+    }
+    return this.finish(chosen,level,seed);
   }
 };
 
-/* ---------------------- bounded DFS solver (hints) ----------------------
-   Works purely on game state. Node budget guarantees termination; if the
-   budget runs out the caller falls back to "any escapable arrow". */
+/* ---------------------- bounded DFS solver (safe hints) ---------------------- */
 function solveSession(session,budget){
   budget=budget||6000;
   const {cols,rows}=session;
@@ -576,7 +719,7 @@ function solveSession(session,budget){
   const occ=new Uint8Array(cols*rows);
   for(const a of arrows) occ[a.cell]=1;
   const items=arrows.map(a=>({a,len:stepsToEdge(a.cell,a.dir,cols,rows)}))
-                    .sort((p,q)=>p.len-q.len); // peel outside-in first
+                    .sort((p,q)=>p.len-q.len);
   const removed=new Uint8Array(n), seq=[];
   let nodes=0, timeout=false;
   function clearPath(a){
@@ -605,7 +748,8 @@ function solveSession(session,budget){
 
 /* ---------------------- authoritative game state ---------------------- */
 class Session{
-  constructor(board){
+  constructor(board,mode){
+    this.mode=mode;
     this.level=board.level;
     this.cols=board.cols; this.rows=board.rows;
     this.arrows=board.arrows.map(a=>({id:a.id,cell:a.cell,dir:a.dir,color:a.color,alive:true}));
@@ -613,7 +757,8 @@ class Session{
     for(const a of this.arrows) this.occ[a.cell]=1;
     this.total=this.arrows.length; this.alive=this.total;
     this.moves=0; this.hints=0; this.failed=0;
-    this.undoStack=[]; this.completed=false; this.stuck=false;
+    this.combo=0; this.comboBest=0; this.score=0; this.stars=0;
+    this.undoStack=[]; this.completed=false;
   }
   findAlive(ci){
     for(const a of this.arrows){ if(a.alive&&a.cell===ci) return a; }
@@ -634,13 +779,33 @@ class Session{
     for(const a of this.arrows){ if(a.alive&&this.pathInfo(a).clear) r.push(a); }
     return r;
   }
-  remove(a){ a.alive=false; this.occ[a.cell]=0; this.alive--; this.undoStack.push(a.id); }
-  restoreById(id){
-    const a=this.arrows[id];
-    if(!a||a.alive) return;
-    if(this.undoStack[this.undoStack.length-1]!==id) return;
-    this.undoStack.pop();
-    a.alive=true; this.occ[a.cell]=1; this.alive++;
+  tap(a){ // returns {ok, pts, combo, info}; pushes a full stat snapshot for undo
+    const info=this.pathInfo(a);
+    this.undoStack.push({id:info.clear?a.id:null,moves:this.moves,failed:this.failed,
+                         combo:this.combo,score:this.score,comboBest:this.comboBest});
+    this.moves++;
+    if(info.clear){
+      this.combo++; this.comboBest=Math.max(this.comboBest,this.combo);
+      let pts=0;
+      if(this.mode==='rush'){ pts=10+5*Math.min(this.combo-1,5); this.score+=pts; }
+      a.alive=false; this.occ[a.cell]=0; this.alive--;
+      return {ok:true,pts,combo:this.combo,info};
+    }
+    this.failed++; this.combo=0;
+    return {ok:false,pts:0,combo:0,info};
+  }
+  undo(){ // restores the arrow AND all stats to the exact prior state
+    while(this.undoStack.length){
+      const s=this.undoStack.pop();
+      if(s.id!=null){
+        const a=this.arrows[s.id];
+        if(a&&!a.alive){ a.alive=true; this.occ[a.cell]=1; this.alive++; }
+      }
+      this.moves=s.moves; this.failed=s.failed; this.combo=s.combo;
+      this.score=s.score; this.comboBest=s.comboBest;
+      return s.id;
+    }
+    return undefined;
   }
 }
 
@@ -682,7 +847,7 @@ class Renderer{
     ctx.setTransform(this.dpr,0,0,this.dpr,0,0);
     ctx.clearRect(0,0,this.w,this.h);
     if(!s){ this.lastT=now; return; }
-    const c=this.cell, cr=Math.max(3,c*0.14);
+    const c=this.cell, cr=Math.max(3,c*0.14), cols=ACOLORS();
     let pulse=1;
     if(fx.boardPulse){
       const k=clamp((now-fx.boardPulse)/520,0,1);
@@ -691,7 +856,7 @@ class Renderer{
     ctx.save();
     if(pulse!==1){ ctx.translate(this.w/2,this.h/2); ctx.scale(pulse,pulse); ctx.translate(-this.w/2,-this.h/2); }
 
-    /* board panel + subtle cell tiles */
+    /* board panel + cell tiles */
     roundRect(ctx,this.bx-this.pad,this.by-this.pad,this.bw+this.pad*2,this.bh+this.pad*2,18);
     ctx.fillStyle='#121A2D'; ctx.fill();
     ctx.strokeStyle='rgba(255,255,255,.07)'; ctx.lineWidth=1; ctx.stroke();
@@ -718,16 +883,36 @@ class Renderer{
       }
     }
 
-    /* hint path tint */
+    /* hint / tutorial highlight */
     if(fx.hint){
       const h=fx.hint;
       if(now-h.t0>=h.dur||!h.arrow.alive){ fx.hint=null; }
       else{
-        const a=0.10+0.05*Math.sin((now-h.t0)/170);
-        for(const ci of h.cells){
-          const x=this.bx+(ci%s.cols)*c, y=this.by+((ci/s.cols)|0)*c;
-          roundRect(ctx,x+2,y+2,c-4,c-4,cr);
-          ctx.fillStyle='rgba(53,230,161,'+a.toFixed(3)+')'; ctx.fill();
+        const col=h.color||'#35E6A1';
+        if(h.showPath){
+          const a=0.10+0.05*Math.sin((now-h.t0)/170);
+          for(const ci of h.cells){
+            const x=this.bx+(ci%s.cols)*c, y=this.by+((ci/s.cols)|0)*c;
+            roundRect(ctx,x+2,y+2,c-4,c-4,cr);
+            ctx.fillStyle='rgba(53,230,161,'+a.toFixed(3)+')'; ctx.fill();
+          }
+        }
+        const p=this.cellCenter(h.arrow.cell);
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,c*0.62+Math.sin(now/170)*2.5,0,Math.PI*2);
+        ctx.strokeStyle=col; ctx.globalAlpha=.95; ctx.lineWidth=3; ctx.stroke();
+        ctx.globalAlpha=1;
+        if(h.showPath){
+          const steps=stepsToEdge(h.arrow.cell,h.arrow.dir,s.cols,s.rows);
+          const {dx,dy}=DIRS[h.arrow.dir];
+          ctx.save();
+          ctx.strokeStyle='rgba(53,230,161,.85)'; ctx.lineWidth=2.5;
+          ctx.setLineDash([7,7]); ctx.lineDashOffset=-((now/30)%14);
+          ctx.beginPath();
+          ctx.moveTo(p.x+dx*c*0.5,p.y+dy*c*0.5);
+          ctx.lineTo(p.x+dx*steps*c,p.y+dy*steps*c);
+          ctx.stroke();
+          ctx.restore();
         }
       }
     }
@@ -752,28 +937,8 @@ class Renderer{
           redOverlay=1-k;
         }
       }
-      drawArrow(ctx,x,y,DIRS[a.dir].ang,c,COLORS[a.color],alpha,scale);
+      drawArrow(ctx,x,y,DIRS[a.dir].ang,c,cols[a.color],alpha,scale);
       if(redOverlay>0) drawArrow(ctx,x,y,DIRS[a.dir].ang,c,'#FF647C',redOverlay*0.5,scale);
-      if(fx.hint&&fx.hint.arrow===a){ // pulsing hint ring
-        ctx.beginPath();
-        ctx.arc(x,y,c*0.62+Math.sin(now/170)*2.5,0,Math.PI*2);
-        ctx.strokeStyle='rgba(53,230,161,.95)'; ctx.lineWidth=3; ctx.stroke();
-      }
-    }
-
-    /* hint dashed escape line */
-    if(fx.hint){
-      const h=fx.hint;
-      const steps=stepsToEdge(h.arrow.cell,h.arrow.dir,s.cols,s.rows);
-      const {dx,dy}=DIRS[h.arrow.dir], c0=this.cellCenter(h.arrow.cell);
-      ctx.save();
-      ctx.strokeStyle='rgba(53,230,161,.85)'; ctx.lineWidth=2.5;
-      ctx.setLineDash([7,7]); ctx.lineDashOffset=-((now/30)%14);
-      ctx.beginPath();
-      ctx.moveTo(c0.x+dx*c*0.5,c0.y+dy*c*0.5);
-      ctx.lineTo(c0.x+dx*steps*c,c0.y+dy*steps*c);
-      ctx.stroke();
-      ctx.restore();
     }
 
     /* keyboard cursor */
@@ -784,35 +949,30 @@ class Renderer{
       ctx.lineWidth=2.5; ctx.stroke();
     }
 
-    /* escaping arrows + trails (grid-anchored, resize-safe) */
+    /* escaping arrows — pixel positions snapshotted at spawn, so board
+       changes (next level / next rush board / resize) never misplace them */
     for(const fl of fx.fliers){
       const k=clamp((now-fl.t0)/fl.dur,0,1), e=k*k;
-      const c0=this.cellCenter(fl.cell);
-      const {dx,dy,ang}=DIRS[fl.dir];
-      const d=e*fl.travelCells*c;
-      const px=c0.x+dx*d, py=c0.y+dy*d;
+      const px=fl.x0+fl.dx*e*fl.travel, py=fl.y0+fl.dy*e*fl.travel;
       const alpha=k<0.6?1:1-(k-0.6)/0.4;
       if(!REDUCED){
-        drawArrow(ctx,px-dx*c*0.42,py-dy*c*0.42,ang,c,COLORS[fl.color],alpha*0.22,0.9);
-        drawArrow(ctx,px-dx*c*0.8,py-dy*c*0.8,ang,c,COLORS[fl.color],alpha*0.10,0.82);
+        drawArrow(ctx,px-fl.dx*c*0.42,py-fl.dy*c*0.42,fl.ang,c,fl.color,alpha*0.22,0.9);
+        drawArrow(ctx,px-fl.dx*c*0.8,py-fl.dy*c*0.8,fl.ang,c,fl.color,alpha*0.10,0.82);
       }
-      drawArrow(ctx,px,py,ang,c,COLORS[fl.color],alpha,1);
+      drawArrow(ctx,px,py,fl.ang,c,fl.color,alpha,1);
     }
 
-    /* exit-gate flashes where arrows leave the board */
+    /* exit-gate flashes */
     for(const ef of fx.edgeFlashes){
       if(now<ef.t0) continue;
       const k=clamp((now-ef.t0)/440,0,1);
-      const c0=this.cellCenter(ef.cell);
-      const {dx,dy}=DIRS[ef.dir];
-      const steps=stepsToEdge(ef.cell,ef.dir,s.cols,s.rows);
-      const px=c0.x+dx*steps*c, py=c0.y+dy*steps*c;
       const half=(0.28+0.55*k)*c;
       ctx.save();
       ctx.globalAlpha=(1-k)*0.9;
       ctx.strokeStyle=ef.color; ctx.lineWidth=3; ctx.lineCap='round';
       ctx.beginPath();
-      ctx.moveTo(px-dy*half,py-dx*half); ctx.lineTo(px+dy*half,py+dx*half);
+      ctx.moveTo(ef.x-ef.dy*half,ef.y-ef.dx*half);
+      ctx.lineTo(ef.x+ef.dy*half,ef.y+ef.dx*half);
       ctx.stroke();
       ctx.restore();
     }
@@ -836,6 +996,20 @@ class Renderer{
       }
       fx.particles=fx.particles.filter(p=>p.delay>0||p.life>0);
     }
+
+    /* floating combo / score texts */
+    for(const t of fx.texts){
+      const k=clamp((now-t.t0)/800,0,1);
+      if(k>=1) continue;
+      ctx.save();
+      ctx.globalAlpha=1-k;
+      ctx.fillStyle=t.color;
+      ctx.font='800 '+Math.round(c*0.42)+'px '+'Trebuchet MS,sans-serif';
+      ctx.textAlign='center';
+      ctx.fillText(t.str,t.x,t.y-k*c*0.8);
+      ctx.restore();
+    }
+    fx.texts=fx.texts.filter(t=>now-t.t0<800);
 
     ctx.restore();
 
@@ -868,6 +1042,7 @@ const Demo={
   },
   render(now){
     const ctx=this.ctx, c=this.cell, t=(now-this.t0)%this.PERIOD;
+    const cols=ACOLORS();
     const A={cell:3,dir:0,color:0}, B={cell:4,dir:2,color:1}, D={cell:2,dir:6,color:2};
     ctx.setTransform(this.dpr,0,0,this.dpr,0,0);
     ctx.clearRect(0,0,this.size,this.size);
@@ -879,8 +1054,7 @@ const Demo={
       roundRect(ctx,this.bx+x*c+2,this.by+y*c+2,c-4,c-4,cr);
       ctx.fillStyle='rgba(255,255,255,.03)'; ctx.fill();
     }
-    /* blocked moment: red tint on the path cell + outline on the blocker */
-    if(t>=900&&t<1400){
+    if(t>=900&&t<1400){ // blocked moment: tinted path cell
       const k=(t-900)/500, a=1-k, p=this.center(4);
       roundRect(ctx,p.x-c/2+2,p.y-c/2+2,c-4,c-4,cr);
       ctx.fillStyle='rgba(255,100,124,'+(a*0.20).toFixed(3)+')'; ctx.fill();
@@ -898,7 +1072,7 @@ const Demo={
     };
     ring(3,'#55B8FF',(t>260&&t<900)||(t>3150&&t<3900));
     ring(4,'#35E6A1',t>1650&&t<2400);
-    ring(2,'#FFC94D',t>4600&&t<5300);
+    ring(2,'#FFD166',t>4600&&t<5300);
     const drawStatic=(a,shake,tap)=>{
       let {x,y}=this.center(a.cell), sc=1, red=0;
       if(tap!==undefined){ const k=clamp((t-tap)/180,0,1); sc=lerp(0.85,1,easeOutBack(k)); }
@@ -907,7 +1081,7 @@ const Demo={
         const amp=Math.sin(k*Math.PI*6)*(1-k)*c*(REDUCED?0.03:0.09);
         x+=-DIRS[a.dir].dy*amp; y+=DIRS[a.dir].dx*amp; red=1-k;
       }
-      drawArrow(ctx,x,y,DIRS[a.dir].ang,c,COLORS[a.color],1,sc);
+      drawArrow(ctx,x,y,DIRS[a.dir].ang,c,cols[a.color],1,sc);
       if(red>0) drawArrow(ctx,x,y,DIRS[a.dir].ang,c,'#FF647C',red*0.5,sc);
     };
     const drawFly=(a,tStart,dur)=>{
@@ -915,7 +1089,7 @@ const Demo={
       const e=k*k, steps=stepsToEdge(a.cell,a.dir,3,3);
       const p=this.center(a.cell), {dx,dy,ang}=DIRS[a.dir];
       const d=e*(steps+1.5)*c, alpha=k<0.6?1:1-(k-0.6)/0.4;
-      drawArrow(ctx,p.x+dx*d,p.y+dy*d,ang,c,COLORS[a.color],alpha,1);
+      drawArrow(ctx,p.x+dx*d,p.y+dy*d,ang,c,cols[a.color],alpha,1);
     };
     const tap=t>=900&&t<1100?900:undefined, shake=t>=900&&t<1320;
     if(t<3900) drawStatic(A,shake,tap); else drawFly(A,3900,460);
@@ -935,66 +1109,75 @@ const Demo={
 
 /* ---------------------- app state & flow ---------------------- */
 function freshFx(){
-  return {fliers:[],flashes:[],edgeFlashes:[],particles:[],
+  return {fliers:[],flashes:[],edgeFlashes:[],particles:[],texts:[],
           shakes:new Map(),restores:new Map(),hint:null,boardPulse:0,cursor:null};
+}
+function DEFAULTS(){
+  return {v:2,level:1,best:1,sound:true,palette:0,
+          runSeed:(Math.random()*4294967296)>>>0,
+          starsTotal:0,starsCount:0,flawless:0,bestCombo:0,
+          daily:{date:'',done:false,bestMoves:0},rushBest:0};
 }
 const App={
   screen:'home', overlay:null, session:null, dirty:true,
   renderer:null, levelSeed:0, firstBlockCount:0,
-  state:{level:1,best:1,sound:true,runSeed:(Math.random()*4294967296)>>>0},
+  mode:'classic', rush:null, tut:false,
+  platformSettled:false, hostAudio:true, pausedByHost:false,
+  recentSigs:[], touchedPrefs:false,
+  state:DEFAULTS(),
   fx:freshFx(),
 
-  play(){
-    UI.showScreen('game');
-    const s=this.session;
-    if(!(s&&!s.completed&&s.level===this.state.level)){
-      startLevel(this.state.level,hashSeed(this.state.runSeed,this.state.level));
-    }else{
-      UI.updateHud(); this.dirty=true; Platform.gameplayStart();
-    }
-  },
+  play(){ startMode('classic'); },
+
   tapArrow(arrow){
     const s=this.session;
     if(!s||s.completed||this.overlay) return;
-    const fx=this.fx;
+    const fx=this.fx, now=performance.now();
     fx.hint=null;
-    const info=s.pathInfo(arrow);
-    s.moves++;
-    if(info.clear){
-      s.remove(arrow);
+    const res=s.tap(arrow);
+    if(res.ok){
       spawnEscapeFx(arrow,s);
       AudioMgr.play('escape');
+      const R=this.renderer, p=R.cellCenter(arrow.cell);
+      if(s.mode==='rush'){
+        fx.texts.push({x:p.x,y:p.y-R.cell*0.3,
+          str:'+'+res.pts+(res.combo>=2?' ×'+res.combo:''),t0:now,color:'#FFD166'});
+      }else if(res.combo>=2){
+        fx.texts.push({x:p.x,y:p.y-R.cell*0.3,str:'×'+res.combo,t0:now,color:'#35E6A1'});
+      }
+      if(this.tut){ this.tut=false; UI.toast('Nice — now free the rest'); }
       UI.updateHud();
       this.dirty=true;
       if(s.alive===0){ this.onLevelClear(); return; }
-      if(s.escapable().length===0){ // definitive dead end: nothing can move
-        s.stuck=true;
+      /* Safety net: dead ends are mathematically impossible in this design
+         (removing arrows only clears paths), so this should never fire.
+         Kept as a generation-bug guard, per the "treat as generator error" rule. */
+      if(s.escapable().length===0){
         setTimeout(()=>{
-          if(this.session===s&&s.stuck&&!s.completed&&!this.overlay){
-            AudioMgr.play('stuck'); UI.openOverlay('stuck');
-          }
-        },620);
+          if(this.session===s&&!s.completed&&!this.overlay) UI.openOverlay('stuck');
+        },600);
       }
     }else{
-      s.failed++;
-      const now=performance.now();
+      if(this.firstBlockCount<2){
+        this.firstBlockCount++;
+        UI.toast('Blocked — another arrow is in its way');
+      }
       fx.shakes.set(arrow.id,now);
-      fx.flashes.push({t0:now,cells:info.cells,blockers:info.blockers});
+      fx.flashes.push({t0:now,cells:res.info.cells,blockers:res.info.blockers});
       AudioMgr.play('blocked');
-      if(this.firstBlockCount<2){ this.firstBlockCount++; UI.toast('Blocked — another arrow is in its way'); }
+      UI.updateHud();
       this.dirty=true;
     }
   },
   undo(){
     const s=this.session;
     if(!s) return;
-    if(this.overlay==='stuck') UI.closeOverlay();
-    if(!s.undoStack.length){ UI.toast('Nothing to undo'); return; }
-    const id=s.undoStack[s.undoStack.length-1];
-    this.fx.fliers=this.fx.fliers.filter(f=>f.id!==id);
-    s.restoreById(id);
-    s.stuck=false;
-    this.fx.restores.set(id,performance.now());
+    const r=s.undo();
+    if(r===undefined){ UI.toast('Nothing to undo'); return; }
+    if(r!=null){
+      this.fx.fliers=this.fx.fliers.filter(f=>f.id!==r);
+      this.fx.restores.set(r,performance.now());
+    }
     AudioMgr.play('undo');
     UI.updateHud();
     this.dirty=true;
@@ -1004,32 +1187,42 @@ const App={
     if(!s||s.completed||this.overlay) return;
     const alive=s.arrows.filter(a=>a.alive);
     if(!alive.length) return;
+    /* Tiered help: first hint points at an escape; repeats also show the path. */
     let target=null;
     const res=solveSession(s,6000); // safe hint: first move of a found solution
     if(res.solved&&res.seq.length) target=s.arrows[res.seq[0]];
     else{ const esc=s.escapable(); if(esc.length) target=esc[0]; }
-    if(!target){
-      if(!s.stuck){ s.stuck=true; AudioMgr.play('stuck'); UI.openOverlay('stuck'); }
-      else UI.toast('No arrow can escape — undo a move');
-      return;
-    }
+    if(!target){ UI.openOverlay('stuck'); return; } // unreachable safety net
+    const tier=1+Math.min(s.hints,1);
     s.hints++;
-    this.fx.hint={arrow:target,cells:s.pathInfo(target).cells,t0:performance.now(),dur:2600};
+    this.fx.hint={arrow:target,cells:s.pathInfo(target).cells,t0:performance.now(),
+                  dur:2600,showPath:tier>=2,color:'#35E6A1'};
     AudioMgr.play('hint');
-    UI.toast('This arrow can escape — its path is clear');
+    UI.toast(tier>=2?'This arrow can escape — its path is clear'
+                    :'This arrow can escape — look for its open path');
+    if(s.mode==='rush'&&this.rush){
+      this.rush.timeLeft=Math.max(0,this.rush.timeLeft-RUSH_HINT_PENALTY);
+      UI.updateBarCount();
+      if(this.rush.timeLeft<=0){ endRush(); return; }
+    }
     this.dirty=true;
   },
   restart(){
-    if(!this.session) return;
-    const lv=this.session.level, seed=this.levelSeed;
+    const s=this.session;
+    if(!s) return;
+    if(this.mode==='rush'){
+      UI.closeOverlay(); startMode('rush'); UI.toast('Run restarted'); return;
+    }
     UI.closeOverlay();
-    startLevel(lv,seed);
-    UI.toast('Level restarted');
+    /* Same seed, no anti-repeat filter → the identical board comes back. */
+    startSession(Generator.generate(s.level,this.levelSeed),this.mode);
+    UI.toast(this.mode==='daily'?'Puzzle restarted':'Level restarted');
   },
   pause(){
     if(this.screen!=='game'||this.overlay) return;
     const s=this.session;
     if(!s||s.completed) return;
+    this.pausedByHost=false;
     AudioMgr.suspend(); Platform.gameplayStop();
     UI.openOverlay('pause');
   },
@@ -1045,95 +1238,221 @@ const App={
     Platform.gameplayStop();
   },
   next(){
-    if(!this.session) return;
-    const lv=this.session.level+1;
+    const s=this.session;
+    if(!s||s.completed) return;
+    const lv=s.level+1;
     UI.closeOverlay();
-    startLevel(lv,hashSeed(this.state.runSeed,lv));
+    startSession(genClassic(lv),App.mode);
   },
   replay(){
-    if(!this.session) return;
-    const lv=this.session.level, seed=this.levelSeed;
+    const s=this.session;
+    if(!s) return;
     UI.closeOverlay();
-    startLevel(lv,seed);
+    startMode(this.mode);
   },
   onLevelClear(){
     const s=this.session;
     if(!s||s.completed) return;
     s.completed=true;
+    const st=this.state, now=performance.now();
+    s.stars=3-(s.hints>0?1:0)-(s.failed>0?1:0);
+    st.bestCombo=Math.max(st.bestCombo,s.comboBest);
     AudioMgr.play('complete');
-    this.fx.boardPulse=performance.now();
+    this.fx.boardPulse=now;
     spawnConfetti();
-    this.state.best=Math.max(this.state.best,s.level);
-    this.state.level=s.level+1;
+    this.dirty=true;
+
+    if(s.mode==='rush'){ // rush chains straight into the next board, no overlay
+      const r=this.rush;
+      r.boards++; r.score+=50;
+      r.timeLeft=Math.min(r.timeLeft+RUSH_BONUS,RUSH_CAP);
+      const R=this.renderer;
+      this.fx.texts.push({x:R.bx+R.bw/2,y:R.by+R.bh/2,str:'+10s',t0:now,color:'#FFD166'});
+      UI.updateHud();
+      setTimeout(()=>{
+        if(App.mode==='rush'&&App.rush&&!App.rush.over&&App.session===s){
+          startSession(genRushBoard(App.rush.boards),'rush');
+        }
+      },500);
+      return;
+    }
+
+    if(s.mode==='daily'){
+      const today=dailyKey(), first=!(st.daily.date===today&&st.daily.done);
+      const better=first||!st.daily.bestMoves||s.moves<st.daily.bestMoves;
+      if(st.daily.date!==today) st.daily={date:today,done:true,bestMoves:s.moves};
+      else{ st.daily.done=true; if(better) st.daily.bestMoves=s.moves; }
+      if(first){ st.starsTotal+=s.stars; st.starsCount++; if(s.stars===3) st.flawless++; }
+      saveProgress();
+      Platform.gameplayStop();
+      UI.fillComplete(s,{first,better});
+      setTimeout(()=>{ if(App.session===s) UI.openOverlay('complete'); },700);
+      return;
+    }
+
+    /* classic */
+    const lv=s.level;
+    st.level=lv+1;
+    const prevBest=st.best;
+    st.best=Math.max(st.best,lv);
+    st.starsTotal+=s.stars; st.starsCount++;
+    if(s.stars===3) st.flawless++;
     saveProgress();
     Platform.gameplayStop();
-    UI.fillCompleteStats(s);
-    this.dirty=true;
-    setTimeout(()=>{ if(this.session===s) UI.openOverlay('complete'); },700);
-  },
-  hostPause(){
-    AudioMgr.suspend();
-    if(this.screen==='game'&&!this.overlay&&this.session&&!this.session.completed){
-      UI.openOverlay('pause');
+    const unlocks=[];
+    if(lv>prevBest){
+      for(const p of PALETTES){ if(p.unlock===lv&&p.unlock>1) unlocks.push(p.name); }
     }
+    UI.fillComplete(s,{unlocks});
+    setTimeout(()=>{ if(App.session===s) UI.openOverlay('complete'); },700);
   },
-  setSound(v,opts){
+  hostPause(){ // SDK onPause / tab hidden: pause execution + save
+    AudioMgr.suspend();
+    if(this.screen==='game'&&!this.overlay){
+      const s=this.session;
+      Platform.gameplayStop();
+      if(s&&!s.completed){ this.pausedByHost=true; UI.openOverlay('pause'); }
+    }
+    saveProgress();
+  },
+  hostResume(){ // resume only when the host says so
+    if(this.pausedByHost){
+      this.pausedByHost=false;
+      if(this.overlay==='pause'){
+        UI.closeOverlay();
+        if(this.screen==='game') Platform.gameplayStart();
+      }
+    }
+    this.hostAudio=Platform.audioOn();
+    AudioMgr.resumeCtx();
+  },
+  setSound(v,persist){
     this.state.sound=!!v;
+    this.touchedPrefs=true;
     AudioMgr.setEnabled(v);
     UI.updateSoundUI();
-    if(!opts||opts.persist!==false) saveProgress();
+    if(persist!==false) saveProgress();
   },
   hasActiveFx(){
     const fx=this.fx, now=performance.now();
     return fx.fliers.length>0||fx.flashes.length>0||fx.edgeFlashes.length>0||
-           fx.particles.length>0||fx.shakes.size>0||fx.restores.size>0||!!fx.hint||
+           fx.particles.length>0||fx.texts.length>0||fx.shakes.size>0||
+           fx.restores.size>0||!!fx.hint||
            (fx.boardPulse&&now-fx.boardPulse<600)||
            (fx.cursor&&now<fx.cursor.until);
   }
 };
+function ACOLORS(){
+  const i=App.state?App.state.palette:0;
+  return (PALETTES[i]||PALETTES[0]).colors;
+}
 
-function startLevel(level,seed){
-  const board=Generator.generate(level,seed>>>0);
+/* ---------------------- level sources per mode ---------------------- */
+function pushSig(board){
+  App.recentSigs.push(Generator.sig(board,board.metrics));
+  if(App.recentSigs.length>10) App.recentSigs.shift(); // bounded
+}
+function genClassic(level){
+  const b=Generator.generate(level,hashSeed(App.state.runSeed,level),{recent:App.recentSigs});
+  pushSig(b);
+  return b;
+}
+function genRushBoard(k){
+  const b=Generator.generate(Math.min(3+k*2,14),hashSeed(App.state.runSeed,777000+k),{recent:App.recentSigs});
+  pushSig(b);
+  return b;
+}
+function genDailyBoard(){ // same puzzle for everyone, per calendar day
+  const pseudo=12+(new Date().getDate()%10);
+  return Generator.generate(pseudo,strHash(dailyKey()));
+}
+function startMode(mode){
+  AudioMgr.unlock();
+  UI.showScreen('game');
+  if(mode==='rush'){
+    App.rush={timeLeft:RUSH_START,cap:RUSH_CAP,boards:0,score:0,running:true,over:false};
+    startSession(genRushBoard(0),'rush');
+  }else if(mode==='daily'){
+    startSession(genDailyBoard(),'daily');
+  }else{
+    startSession(genClassic(App.state.level),'classic');
+  }
+}
+function startSession(board,mode){
+  App.mode=mode;
   App.levelSeed=board.seed;
-  App.session=new Session(board);
+  App.session=new Session(board,mode);
   App.fx=freshFx();
   UI.updateHud();
   App.renderer.resize();
   App.dirty=true;
   Platform.gameplayStart();
-  if(level===1) UI.toast('Tap an arrow whose path to the edge is clear');
+  maybeStartTutorial();
+}
+/* Level-1 tutorial: point at a real escape instead of front-loading rules. */
+function maybeStartTutorial(){
+  if(App.mode!=='classic'||!App.session||App.session.level!==1||App.state.best>1) return;
+  App.tut=true;
+  setTimeout(()=>{
+    const s=App.session;
+    if(!App.tut||!s||s.completed||s.moves>0||App.screen!=='game'||App.overlay) return;
+    const esc=s.escapable();
+    if(!esc.length) return;
+    const a=esc[(Math.random()*esc.length)|0];
+    App.fx.hint={arrow:a,cells:s.pathInfo(a).cells,t0:performance.now(),
+                 dur:60000,showPath:false,color:'#FFD166'};
+    UI.toast('Tap the glowing arrow — its path to the edge is clear',3400);
+  },500);
+}
+function endRush(){
+  const r=App.rush, s=App.session;
+  if(!r||r.over) return;
+  r.over=true; r.running=false;
+  if(s&&!s.completed) s.completed=true;
+  AudioMgr.play('complete');
+  App.state.bestCombo=Math.max(App.state.bestCombo,s?s.comboBest:0);
+  const nb=r.score>App.state.rushBest;
+  if(nb) App.state.rushBest=r.score;
+  saveProgress();
+  Platform.gameplayStop();
+  Platform.sendScore(r.score); // optional official score reporting (guarded)
+  UI.fillResults(nb);
+  setTimeout(()=>{ UI.openOverlay('results'); },600);
 }
 
+/* ---------------------- fx spawners (pixel snapshots) ---------------------- */
 function spawnEscapeFx(a,s){
-  const now=performance.now(), R=App.renderer, fx=App.fx;
+  const now=performance.now(), R=App.renderer, fx=App.fx, cols=ACOLORS();
   const steps=stepsToEdge(a.cell,a.dir,s.cols,s.rows);
-  const travel=steps+1.7;
+  const c0=R.cellCenter(a.cell);
+  const {dx,dy,ang}=DIRS[a.dir];
+  const travel=(steps+1.7)*R.cell;
   const dur=REDUCED?170:430;
-  fx.fliers.push({id:a.id,cell:a.cell,dir:a.dir,color:a.color,t0:now,dur,travelCells:travel});
-  fx.edgeFlashes.push({t0:now+dur*Math.sqrt(steps/travel),cell:a.cell,dir:a.dir,color:COLORS[a.color]});
+  fx.fliers.push({id:a.id,x0:c0.x,y0:c0.y,dx,dy,ang,color:cols[a.color],t0:now,dur,travel});
+  const ex=c0.x+dx*steps*R.cell, ey=c0.y+dy*steps*R.cell;
+  fx.edgeFlashes.push({t0:now+dur*Math.sqrt(steps/(steps+1.7)),x:ex,y:ey,dx,dy,color:cols[a.color]});
   if(REDUCED) return;
-  const start=R.cellCenter(a.cell), {dx,dy}=DIRS[a.dir];
-  const ex=start.x+dx*steps*R.cell, ey=start.y+dy*steps*R.cell;
   for(let i=0;i<5;i++){
     fx.particles.push({
       x:ex,y:ey,
       vx:dx*(0.06+Math.random()*0.12)+(Math.random()-0.5)*0.12,
       vy:dy*(0.06+Math.random()*0.12)+(Math.random()-0.5)*0.12,
-      g:0,life:380+Math.random()*220,maxLife:520,delay:dur*Math.sqrt(steps/travel),
-      color:COLORS[a.color],size:2+Math.random()*2,shape:0,rot:0,vr:0
+      g:0,life:380+Math.random()*220,maxLife:520,
+      delay:dur*Math.sqrt(steps/(steps+1.7)),
+      color:cols[a.color],size:2+Math.random()*2,shape:0,rot:0,vr:0
     });
   }
 }
 function spawnConfetti(){
   if(REDUCED) return;
-  const R=App.renderer, fx=App.fx;
+  const R=App.renderer, fx=App.fx, cols=ACOLORS();
   const cx=R.bx+R.bw/2, cy=R.by+R.bh/2;
   for(let i=0;i<26;i++){
     const ang=Math.random()*Math.PI*2, sp=0.12+Math.random()*0.22;
     fx.particles.push({
       x:cx,y:cy,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp-0.18,g:0.0009,
       life:700+Math.random()*500,maxLife:1200,delay:0,
-      color:COLORS[i%COLORS.length],size:3+Math.random()*3,
+      color:cols[i%cols.length],size:3+Math.random()*3,
       shape:Math.random()<0.5?0:1,rot:Math.random()*3,vr:(Math.random()-0.5)*0.02
     });
   }
@@ -1141,61 +1460,91 @@ function spawnConfetti(){
 
 /* ---------------------- persistence ---------------------- */
 function normalizeSave(raw){
-  const d=(raw&&typeof raw==='object'&&!Array.isArray(raw))?raw:{};
-  const num=v=>(typeof v==='number'&&isFinite(v))?Math.floor(v):null;
-  let level=num(d.level); level=(level===null||level<1)?1:Math.min(level,99999);
-  let best=num(d.best); best=(best===null||best<1)?1:Math.min(best,99999);
-  const rs=num(d.runSeed);
-  const runSeed=(rs!==null&&rs>=0)?(rs>>>0):((Math.random()*4294967296)>>>0);
-  return {level,best,sound:d.sound!==false,runSeed};
+  const d=DEFAULTS();
+  if(!(raw&&typeof raw==='object'&&!Array.isArray(raw))) return d;
+  const int=(v,def,min,max)=>{
+    const n=(typeof v==='number'&&isFinite(v))?Math.floor(v):def;
+    return clamp(n,min,max);
+  };
+  d.level=int(raw.level,1,1,999999);
+  d.best=int(raw.best,1,1,999999);
+  if(d.best<d.level) d.best=d.level;
+  d.sound=raw.sound!==false;
+  d.palette=int(raw.palette,0,0,PALETTES.length-1);
+  d.starsTotal=int(raw.starsTotal,0,0,1e9);
+  d.starsCount=int(raw.starsCount,0,0,1e9);
+  d.flawless=int(raw.flawless,0,0,1e9);
+  d.bestCombo=int(raw.bestCombo,0,0,1e9);
+  d.rushBest=int(raw.rushBest,0,0,1e9);
+  if(typeof raw.runSeed==='number'&&isFinite(raw.runSeed)&&raw.runSeed>=0) d.runSeed=raw.runSeed>>>0;
+  if(raw.daily&&typeof raw.daily==='object'&&!Array.isArray(raw.daily)){
+    const dt=raw.daily;
+    if(typeof dt.date==='string'&&/^\d{4}-\d{1,2}-\d{1,2}$/.test(dt.date)){
+      d.daily={date:dt.date,done:dt.done===true,bestMoves:int(dt.bestMoves,0,0,1e6)};
+    }
+  }
+  return d;
 }
-function loadProgress(){
-  const d=normalizeSave(Storage.read());
-  App.state.level=d.level; App.state.best=d.best;
-  App.state.sound=d.sound; App.state.runSeed=d.runSeed;
+function mergeSave(d){ // forward-merge so late-arriving cloud data never regresses
+  const st=App.state;
+  st.level=Math.max(st.level,d.level);
+  st.best=Math.max(st.best,d.best);
+  st.starsTotal=Math.max(st.starsTotal,d.starsTotal);
+  st.starsCount=Math.max(st.starsCount,d.starsCount);
+  st.flawless=Math.max(st.flawless,d.flawless);
+  st.bestCombo=Math.max(st.bestCombo,d.bestCombo);
+  st.rushBest=Math.max(st.rushBest,d.rushBest);
+  if(!App.touchedPrefs){
+    if(d.palette<=st.best||PALETTES[d.palette].unlock<=st.best) st.palette=d.palette;
+    st.sound=d.sound; AudioMgr.setEnabled(d.sound);
+  }
+  const today=dailyKey();
+  if(d.daily&&d.daily.date===today){
+    if(st.daily.date!==today) st.daily={date:today,done:d.daily.done,bestMoves:d.daily.bestMoves};
+    else{
+      st.daily.done=st.daily.done||d.daily.done;
+      const bm=[st.daily.bestMoves,d.daily.bestMoves].filter(v=>v>0);
+      if(bm.length) st.daily.bestMoves=Math.min.apply(null,bm);
+    }
+  }
+  UI.updateHome(); UI.renderSwatches(); UI.updateSoundUI();
 }
 function saveProgress(){
-  const data={v:1,level:App.state.level,best:App.state.best,
-              sound:AudioMgr.enabled,runSeed:App.state.runSeed};
-  Platform.saveGame(JSON.stringify(data),data);
-}
-function adoptCloudSave(data){
-  if(App.screen!=='home') return;
-  if(App.session&&!App.session.completed) return;
-  try{
-    const d=normalizeSave(data);
-    if(d.level>App.state.level||d.best>App.state.best){
-      App.state.level=Math.max(d.level,App.state.level);
-      App.state.best=Math.max(d.best,App.state.best);
-      saveProgress(); UI.updateHomeMeta();
-    }
-  }catch(e){}
+  const st=App.state;
+  const data={v:2,level:st.level,best:st.best,sound:AudioMgr.enabled,palette:st.palette,
+    runSeed:st.runSeed,starsTotal:st.starsTotal,starsCount:st.starsCount,
+    flawless:st.flawless,bestCombo:st.bestCombo,rushBest:st.rushBest,daily:st.daily};
+  Platform.save(JSON.stringify(data),data);
 }
 function doReset(){
-  Storage.clear();
-  App.state.level=1; App.state.best=1;
-  App.state.runSeed=(Math.random()*4294967296)>>>0;
-  App.session=null;
-  saveProgress(); UI.updateHomeMeta();
+  if(Platform.mode!=='playables') Storage.clear();
+  Object.assign(App.state,DEFAULTS());
+  App.session=null; App.rush=null; App.recentSigs=[];
+  saveProgress(); // pushes fresh defaults to the active save mechanism
+  UI.updateHome(); UI.renderSwatches(); UI.updateSoundUI();
   UI.toast('Progress reset');
 }
 
 /* ---------------------- UI controller ---------------------- */
-const OVERLAY_PRIMARY={pause:'resumeBtn',complete:'continueBtn',stuck:'stuckUndoBtn'};
+const OVERLAY_PRIMARY={pause:'resumeBtn',complete:'continueBtn',stuck:'stuckUndoBtn',results:'againBtn'};
 const UI={
-  el:{}, ov:{}, prevFocus:null, _t:0, _lastCount:null,
+  el:{}, ov:{}, prevFocus:null, _oc:0, _tt:0, _lastCount:null, _lastSec:null, _lastScore:null,
   init(){
-    const ids=['home','game','playBtn','homeMeta','soundBtnHome','resetBtn','demoCaption',
-      'levelNum','progressWrap','progressFill','arrowsLeft','undoBtn','hintBtn','restartBtn',
-      'pauseBtn','boardWrap','board','ovPause','ovComplete','ovStuck','resumeBtn',
-      'pauseRestartBtn','pauseSoundBtn','pauseHomeBtn','continueBtn','replayBtn','stMoves',
-      'stHints','stArrows','flawlessBadge','cTitle','nextLine','stuckUndoBtn',
-      'stuckRestartBtn','toast'];
+    const ids=['home','game','playBtn','playLabel','demo','demoCaption','dailyBtn','dailyStatus',
+      'rushBtn','rushStatus','swatches','soundBtnHome','resetBtn','homeMeta','modeLbl','levelNum',
+      'progressWrap','progressFill','hudCount','undoBtn','hintBtn','restartBtn','pauseBtn',
+      'boardWrap','board','ovPause','ovComplete','ovStuck','ovResults','resumeBtn',
+      'pauseRestartBtn','pauseSoundBtn','pauseHomeBtn','starsRow','star1','star2','star3','cTitle',
+      'stArrows','stMoves','stHints','stBlocked','cSub','nextLine','continueBtn','replayBtn',
+      'stuckUndoBtn','stuckRestartBtn','rTitle','stScore','stBoards','stCombo','resLine',
+      'againBtn','resHomeBtn','toast'];
     for(const id of ids) this.el[id]=$(id);
     const e=this.el;
-    this.ov={pause:e.ovPause,complete:e.ovComplete,stuck:e.ovStuck};
+    this.ov={pause:e.ovPause,complete:e.ovComplete,stuck:e.ovStuck,results:e.ovResults};
 
-    e.playBtn.addEventListener('click',()=>{ AudioMgr.unlock(); AudioMgr.play('click'); App.play(); });
+    e.playBtn.addEventListener('click',()=>{ AudioMgr.play('click'); App.play(); });
+    e.dailyBtn.addEventListener('click',()=>{ AudioMgr.play('click'); startMode('daily'); });
+    e.rushBtn.addEventListener('click',()=>{ AudioMgr.play('click'); startMode('rush'); });
     e.undoBtn.addEventListener('click',()=>App.undo());
     e.hintBtn.addEventListener('click',()=>App.hint());
     e.restartBtn.addEventListener('click',()=>App.restart());
@@ -1204,13 +1553,18 @@ const UI={
     e.pauseRestartBtn.addEventListener('click',()=>App.restart());
     e.pauseSoundBtn.addEventListener('click',()=>App.setSound(!App.state.sound));
     e.pauseHomeBtn.addEventListener('click',()=>App.goHome());
-    e.continueBtn.addEventListener('click',()=>{ AudioMgr.play('click'); App.next(); });
+    e.continueBtn.addEventListener('click',()=>{
+      AudioMgr.play('click');
+      if(App.mode==='daily') App.goHome(); else App.next();
+    });
     e.replayBtn.addEventListener('click',()=>App.replay());
     e.stuckUndoBtn.addEventListener('click',()=>App.undo());
     e.stuckRestartBtn.addEventListener('click',()=>App.restart());
+    e.againBtn.addEventListener('click',()=>{ AudioMgr.play('click'); startMode('rush'); });
+    e.resHomeBtn.addEventListener('click',()=>App.goHome());
     e.soundBtnHome.addEventListener('click',()=>{ AudioMgr.unlock(); App.setSound(!App.state.sound); });
 
-    let resetT=0;
+    let resetT=0; // destructive action: two-tap confirmation
     e.resetBtn.addEventListener('click',()=>{
       if(e.resetBtn.dataset.armed){
         delete e.resetBtn.dataset.armed;
@@ -1238,47 +1592,131 @@ const UI={
     this.el.home.classList.toggle('hidden',name!=='home');
     this.el.game.classList.toggle('hidden',name!=='game');
     if(name==='game'&&App.renderer) App.renderer.resize();
-    if(name==='home') this.updateHomeMeta();
+    if(name==='home') this.updateHome();
   },
-  updateHomeMeta(){
-    const st=App.state;
-    this.el.homeMeta.textContent=(st.level===1&&st.best===1)
-      ?'Your run starts at Level 1'
-      :`Level ${st.level} · Best ${st.best}`;
+  updateHome(){
+    const st=App.state, e=this.el;
+    e.playLabel.textContent=st.level>1?('Continue · Level '+st.level):'Play';
+    const today=dailyKey(), d=st.daily;
+    e.dailyStatus.textContent=(d.date===today)
+      ?(d.done?('Done · best '+d.bestMoves+' moves'):"Today's puzzle — not played")
+      :'New puzzle ready';
+    e.rushStatus.textContent=st.rushBest?('Best '+st.rushBest):'75-second sprint';
+    e.homeMeta.textContent='Best level '+st.best+' · '+st.starsCount+' levels starred';
+  },
+  renderSwatches(){
+    const box=this.el.swatches, st=App.state;
+    box.innerHTML='';
+    PALETTES.forEach((p,i)=>{
+      const locked=st.best<p.unlock;
+      const b=document.createElement('button');
+      b.type='button';
+      b.className='swatch'+(i===st.palette?' sel':'')+(locked?' locked':'');
+      b.setAttribute('aria-label',p.name+(locked?' — unlocks at level '+p.unlock:''));
+      b.title=locked?('Reach level '+p.unlock):p.name;
+      if(locked) b.dataset.lv='Lv '+p.unlock;
+      for(let k=0;k<3;k++){
+        const d=document.createElement('span');
+        d.className='dot'; d.style.background=p.colors[k];
+        b.appendChild(d);
+      }
+      b.addEventListener('click',()=>{
+        if(st.best<p.unlock){ UI.toast('Unlocks at level '+p.unlock); return; }
+        st.palette=i; App.touchedPrefs=true;
+        saveProgress();
+        UI.renderSwatches();
+        AudioMgr.play('click');
+        UI.toast(p.name+' arrows');
+      });
+      box.appendChild(b);
+    });
   },
   updateHud(){
     const s=App.session, e=this.el;
     if(!s) return;
-    e.levelNum.textContent=s.level;
-    e.arrowsLeft.textContent=s.alive+(s.alive===1?' arrow left':' arrows left');
-    if(this._lastCount!=null&&this._lastCount!==s.alive){
-      e.arrowsLeft.classList.remove('pop'); void e.arrowsLeft.offsetWidth;
-      e.arrowsLeft.classList.add('pop');
+    if(App.mode==='rush'){
+      e.modeLbl.textContent='SCORE';
+      this._lastScore=null;
+      e.progressWrap.setAttribute('aria-label','Time remaining');
+    }else{
+      e.modeLbl.textContent=App.mode==='daily'?'DAILY':'LEVEL';
+      e.levelNum.textContent=App.mode==='daily'?new Date().getDate():s.level;
+      e.progressWrap.setAttribute('aria-label','Level progress');
+      this._lastCount=null;
     }
-    this._lastCount=s.alive;
-    e.progressFill.style.width=(s.total?100*(s.total-s.alive)/s.total:0)+'%';
-    e.progressWrap.setAttribute('aria-valuemin','0');
-    e.progressWrap.setAttribute('aria-valuemax',String(s.total));
-    e.progressWrap.setAttribute('aria-valuenow',String(s.total-s.alive));
-    e.undoBtn.disabled=!s.undoStack.length;
+    this.updateBarCount();
     e.board.setAttribute('aria-label',
-      `Arrow47 board, level ${s.level}, ${s.alive} of ${s.total} arrows remaining`);
+      'Arrow47 board, '+App.mode+' mode, '+s.alive+' of '+s.total+' arrows remaining');
+  },
+  updateBarCount(){
+    const s=App.session, e=this.el;
+    if(!s) return;
+    if(App.mode==='rush'&&App.rush){
+      const r=App.rush;
+      e.progressFill.style.width=(clamp(r.timeLeft/r.cap,0,1)*100).toFixed(1)+'%';
+      e.progressFill.classList.toggle('low',r.timeLeft<10000);
+      const sec=Math.ceil(r.timeLeft/1000);
+      if(this._lastSec!==sec){ this._lastSec=sec; e.hudCount.textContent=sec+'s'; }
+      if(this._lastScore!==r.score){ this._lastScore=r.score; e.levelNum.textContent=r.score; }
+      e.progressWrap.setAttribute('aria-valuemin','0');
+      e.progressWrap.setAttribute('aria-valuemax',String(r.cap/1000));
+      e.progressWrap.setAttribute('aria-valuenow',String(sec));
+    }else{
+      e.progressFill.classList.remove('low');
+      e.progressFill.style.width=(s.total?100*(s.total-s.alive)/s.total:0)+'%';
+      const txt=s.alive+(s.alive===1?' arrow left':' arrows left');
+      if(this._lastCount!==txt){
+        this._lastCount=txt;
+        e.hudCount.textContent=txt;
+        e.hudCount.classList.remove('pop'); void e.hudCount.offsetWidth;
+        e.hudCount.classList.add('pop');
+      }
+      e.progressWrap.setAttribute('aria-valuemin','0');
+      e.progressWrap.setAttribute('aria-valuemax',String(s.total));
+      e.progressWrap.setAttribute('aria-valuenow',String(s.total-s.alive));
+    }
+    e.undoBtn.disabled=!s.undoStack.length;
   },
   updateSoundUI(){
     const on=App.state.sound;
     this.el.soundBtnHome.setAttribute('aria-pressed',String(on));
     this.el.pauseSoundBtn.textContent='Sound: '+(on?'On':'Off');
   },
-  fillCompleteStats(s){
+  fillComplete(s,x){
     const e=this.el;
-    e.cTitle.textContent=`Level ${s.level} clear`;
-    e.stMoves.textContent=s.moves;
-    e.stHints.textContent=s.hints;
-    e.stArrows.textContent=s.total;
-    e.flawlessBadge.hidden=!(s.failed===0&&s.hints===0);
-    e.nextLine.textContent=(s.level%47===0)
-      ?`${s.level} levels deep — a 47 milestone. The grid keeps going.`
-      :`Level ${s.level+1} is ready — the boards keep growing.`;
+    e.cTitle.textContent=s.mode==='daily'?'Daily puzzle clear':('Level '+s.level+' clear');
+    for(let i=1;i<=3;i++) e['star'+i].classList.toggle('on',i<=s.stars);
+    e.starsRow.setAttribute('aria-label',s.stars+' of 3 stars');
+    e.stArrows.textContent=String(s.total);
+    e.stMoves.textContent=String(s.moves);
+    e.stHints.textContent=String(s.hints);
+    e.stBlocked.textContent=String(s.failed);
+    e.cSub.textContent='Best combo ×'+s.comboBest;
+    if(s.mode==='daily'){
+      e.nextLine.textContent=x.first
+        ?'Solved today’s puzzle — a new one arrives tomorrow.'
+        :(x.better?'New personal best: '+s.moves+' moves!':'Best today: '+App.state.daily.bestMoves+' moves.');
+      e.continueBtn.lastChild; // (label set below)
+      e.continueBtn.textContent='Done';
+      e.replayBtn.textContent='Replay puzzle';
+    }else{
+      if(x.unlocks&&x.unlocks.length){
+        e.nextLine.textContent='New arrow look unlocked: '+x.unlocks.join(', ')+'!';
+      }else if(s.level%47===0){
+        e.nextLine.textContent=s.level+' levels deep — a 47 milestone. The grid keeps going.';
+      }else{
+        e.nextLine.textContent='Level '+(s.level+1)+' is ready — the boards keep growing.';
+      }
+      e.continueBtn.textContent='Continue';
+      e.replayBtn.textContent='Replay level';
+    }
+  },
+  fillResults(nb){
+    const e=this.el, r=App.rush;
+    e.stScore.textContent=String(r.score);
+    e.stBoards.textContent=String(r.boards);
+    e.stCombo.textContent='×'+(App.session?App.session.comboBest:0);
+    e.resLine.textContent=nb?'New best score!':('Best score: '+App.state.rushBest);
   },
   openOverlay(name){
     if(App.overlay) return;
@@ -1286,11 +1724,22 @@ const UI={
     const node=this.ov[name];
     this.prevFocus=document.activeElement;
     node.hidden=false;
-    void node.offsetWidth; // reflow so the transition runs
+    void node.offsetWidth;
     node.classList.add('open');
+    if(name==='pause'){
+      this.el.pauseRestartBtn.textContent=App.mode==='rush'?'Restart run':'Restart level';
+    }
     if(name==='stuck'){
+      this.el.stuckRestartBtn.textContent=App.mode==='rush'?'Restart run':'Restart level';
       const s=App.session;
       this.el.stuckUndoBtn.disabled=!(s&&s.undoStack.length);
+    }
+    if(name==='complete'){
+      const stars=this.el.starsRow.querySelectorAll('.star');
+      stars.forEach(el=>{
+        el.classList.remove('pop');
+        if(el.classList.contains('on')){ void el.getBoundingClientRect(); el.classList.add('pop'); }
+      });
     }
     const btn=OVERLAY_PRIMARY[name]?$(OVERLAY_PRIMARY[name]):node.querySelector('button');
     if(btn) setTimeout(()=>{ try{btn.focus();}catch(e){} },60);
@@ -1300,8 +1749,8 @@ const UI={
     if(!name) return;
     const node=this.ov[name];
     node.classList.remove('open');
-    clearTimeout(this._t);
-    this._t=setTimeout(()=>{ node.hidden=true; },230);
+    clearTimeout(this._oc);
+    this._oc=setTimeout(()=>{ node.hidden=true; },230);
     App.overlay=null;
     if(this.prevFocus&&this.prevFocus.focus){ try{this.prevFocus.focus();}catch(e){} }
   },
@@ -1309,8 +1758,8 @@ const UI={
     const e=this.el.toast;
     e.textContent=msg;
     e.classList.add('show');
-    clearTimeout(this._t2);
-    this._t2=setTimeout(()=>e.classList.remove('show'),ms||2000);
+    clearTimeout(this._tt);
+    this._tt=setTimeout(()=>e.classList.remove('show'),ms||2000);
   }
 };
 
@@ -1326,7 +1775,7 @@ function moveCursor(key){
     cx=a.cell%s.cols; cy=(a.cell/s.cols)|0;
   }
   let x=cx+d[0], y=cy+d[1];
-  while(x>=0&&x<s.cols&&y>=0&&y<s.rows){ // hop to the next alive arrow in that direction
+  while(x>=0&&x<s.cols&&y>=0&&y<s.rows){ // hop to the next alive arrow
     if(s.findAlive(y*s.cols+x)){ cx=x; cy=y; break; }
     x+=d[0]; y+=d[1];
   }
@@ -1353,7 +1802,7 @@ function trapFocus(e,panel){
 }
 function onKeydown(e){
   if(App.overlay){
-    if(e.key==='Escape'){ // Escape dismisses via the overlay's primary action
+    if(e.key==='Escape'){
       const id=OVERLAY_PRIMARY[App.overlay];
       if(id){ const b=$(id); if(b&&!b.disabled) b.click(); }
     }else if(e.key==='Tab'){
@@ -1376,41 +1825,54 @@ function onKeydown(e){
 }
 
 /* ---------------------- main loop & bootstrap ---------------------- */
-let lastNow=performance.now(), signaled=false;
+let lastNow=performance.now(), firstFrameSent=false, gameReadySent=false;
 function loop(now){
   requestAnimationFrame(loop);
-  lastNow=now;
+  const dt=Math.min(100,now-lastNow); lastNow=now;
+  if(!firstFrameSent){ firstFrameSent=true; Platform.firstFrameReady(); }
+  if(App.platformSettled&&!gameReadySent){ gameReadySent=true; Platform.gameReady(); }
   if(App.screen==='home'){
     Demo.render(now);
   }else{
+    if(App.mode==='rush'&&App.rush&&App.rush.running&&!App.overlay&&
+       App.session&&!App.session.completed){
+      App.rush.timeLeft-=dt;
+      if(App.rush.timeLeft<=0){ App.rush.timeLeft=0; UI.updateBarCount(); endRush(); }
+      else UI.updateBarCount();
+    }
     if(App.hasActiveFx()||App.dirty){
       App.renderer.render(now);
       App.dirty=false;
     }
-  }
-  if(!signaled){
-    signaled=true;
-    Platform.firstFrameReady(); // first real frame is on screen
-    Platform.gameReady();       // input is bound and the game is interactive
   }
 }
 function onResize(){
   if(App.renderer) App.renderer.resize();
   Demo.resize();
 }
-function init(){
-  Platform.detect();
-  loadProgress();
-  Platform.loadCloudSave(adoptCloudSave); // adopt newer cloud data if the host provides it
-  UI.init();
-  Demo.init();
-  App.renderer=new Renderer($('board'),$('boardWrap'));
-  App.renderer.resize();
-  UI.showScreen('home');
-  UI.updateSoundUI();
-
+function onPlatformReady(){
+  App.platformSettled=true;
+  if(Platform.mode==='playables'){
+    document.body.classList.add('platform-playables');
+    App.hostAudio=Platform.audioOn();
+    /* Cloud save is the only progress mechanism in Playables; loadGame must
+       complete before saveGame is ever called (enforced inside Platform). */
+    Platform.loadCloud(data=>{
+      if(data) mergeSave(normalizeSave(data));
+    });
+  }else{
+    const local=Storage.read(); // standalone fallback only
+    if(local) mergeSave(normalizeSave(local));
+  }
+  Platform.bindLifecycle({
+    onPause(){ App.hostPause(); },
+    onResume(){ App.hostResume(); }
+  });
+}
+function bindInput(){
   window.addEventListener('resize',onResize);
   window.addEventListener('orientationchange',onResize);
+  if(window.visualViewport) visualViewport.addEventListener('resize',onResize);
   if('ResizeObserver' in window) new ResizeObserver(onResize).observe($('boardWrap'));
   document.addEventListener('keydown',onKeydown);
   document.addEventListener('pointerdown',()=>AudioMgr.unlock());
@@ -1432,26 +1894,35 @@ function init(){
     if(arrow) App.tapArrow(arrow);
     App.dirty=true;
   },{passive:false});
-
-  Platform.bindLifecycle({
-    onPause(){ App.hostPause(); },
-    onResume(){ /* wait for the player; audio unlocks on next gesture */ },
-    onAudioStateChange(st){
-      if(st&&typeof st.muted==='boolean') App.setSound(!st.muted,{persist:false});
-    }
-  });
-
+}
+function init(){
+  UI.init();
+  Demo.init();
+  App.renderer=new Renderer($('board'),$('boardWrap'));
+  App.renderer.resize();
+  UI.showScreen('home');
+  UI.renderSwatches();
+  UI.updateSoundUI();
   AudioMgr.setEnabled(App.state.sound);
-
-  /* Debug / reproducibility hook: same (level, seed) always rebuilds the same board. */
-  window.Arrow47={
-    version:'1.0.0',
-    generate:(level,seed)=>Generator.generate(level,(seed==null?(Math.random()*4294967296)>>>0:seed)>>>0),
-    goto(level){ App.state.level=Math.max(1,level|0); App.session=null;
-                 if(App.screen==='game') App.play(); UI.updateHomeMeta(); }
-  };
-
+  bindInput();
   requestAnimationFrame(loop);
+  Platform.init(onPlatformReady); // resolves fast; game is playable meanwhile
+
+  /* Debug / reproducibility hook: same (level, seed) always rebuilds the
+     same board; goto(n) jumps classic progression for testing. */
+  window.Arrow47={
+    version:'2.0.0',
+    generate:(level,seed)=>Generator.generate(level|0,
+      (seed==null?(Math.random()*4294967296)>>>0:seed)>>>0),
+    goto(n){
+      App.state.level=Math.max(1,n|0);
+      App.state.best=Math.max(App.state.best,App.state.level);
+      App.session=null;
+      if(App.screen==='game') startMode('classic');
+      UI.updateHome(); UI.renderSwatches();
+    },
+    startMode:m=>startMode(m)
+  };
 }
 init();
 })();
